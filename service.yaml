@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: testproject-svc
+  namespace: testeks   # change to your namespace
+spec:
+  type: LoadBalancer   # or NodePort if no LB available
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: testproject
+    version: blue   # start with blue, Jenkins will patch this

@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testproject-green
+  namespace: mtesteks   # change to your namespace
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: testproject
+      version: green
+  template:
+    metadata:
+      labels:
+        app: testproject
+        version: green
+    spec:
+      containers:
+        - name: testproject-container
+          image: nkcharan/testproject:v1   # Jenkins will update this image
+          ports:
+            - containerPort: 8080

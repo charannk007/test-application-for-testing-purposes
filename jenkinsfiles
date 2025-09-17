@@ -1,0 +1,92 @@
+pipeline {
+    agent any
+
+    parameters {
+        choice(name: 'DEPLOY_ENV', choices: ['blue', 'green'], description: 'Choose environment to deploy')
+    }
+
+    environment {
+        MAVEN_HOME = tool name: 'maven', type: 'maven'
+        IMAGE_NAME = 'testproject'
+        USER_NAME = 'nkcharan'
+        DOCKERHUB_CREDENTIALS = credentials('docker-creds')
+        KUBE_NAMESPACE = 'testeks'   // change to your namespace
+        DOCKER_TAG = "v${BUILD_NUMBER}" // unique tag for every build
+    }
+
+    stages {
+        stage('Clone the GitHub repository') {
+            steps {
+                git branch: 'main', credentialsId: 'github', url: 'https://github.com/charannk007/test-application-for-testing-purposes.git'
+            }
+        }
+
+        stage('Build the Project') {
+            steps {
+                script {
+                    echo "Maven Home: ${env.MAVEN_HOME}"
+                    sh "${MAVEN_HOME}/bin/mvn -version"
+                    sh "${MAVEN_HOME}/bin/mvn clean package"
+                }
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
+                    }
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh 'docker build -t ${IMAGE_NAME}:${DOCKER_TAG} .'
+                sh 'docker images'
+            }
+        }
+
+        stage('Tag and Push Image') {
+            steps {
+                sh 'docker tag ${IMAGE_NAME}:${DOCKER_TAG} ${USER_NAME}/${IMAGE_NAME}:${DOCKER_TAG}'
+                sh 'docker push ${USER_NAME}/${IMAGE_NAME}:${DOCKER_TAG}'
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    echo "Deploying to ${params.DEPLOY_ENV} environment..."
+                    sh """
+                    kubectl set image deployment/${IMAGE_NAME}-${params.DEPLOY_ENV} ${IMAGE_NAME}-container=${USER_NAME}/${IMAGE_NAME}:${DOCKER_TAG} -n ${KUBE_NAMESPACE}
+                    kubectl rollout status deployment/${IMAGE_NAME}-${params.DEPLOY_ENV} -n ${KUBE_NAMESPACE}
+                    """
+                }
+            }
+        }
+
+        stage('Switch Traffic') {
+            steps {
+                script {
+                    echo "Switching traffic to ${params.DEPLOY_ENV}..."
+                    sh """
+                    kubectl patch service ${IMAGE_NAME}-svc -n ${KUBE_NAMESPACE} -p '{
+                        "spec": { "selector": { "app": "${IMAGE_NAME}", "version": "${params.DEPLOY_ENV}" } }
+                    }'
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Blue-Green Deployment completed successfully.'
+        }
+        failure {
+            echo '❌ Deployment failed! Consider rolling back.'
+        }
+    }
+}
