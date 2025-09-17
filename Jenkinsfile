@@ -12,7 +12,6 @@ pipeline {
         stage('Clone the GitHub repository') {
             steps {
                 git branch: 'main', credentialsId: 'github', url: 'https://github.com/charannk007/test-application-for-testing-purposes.git'
-            }
         }
 
         stage('Build the Project') {
