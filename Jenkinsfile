@@ -12,6 +12,7 @@ pipeline {
         stage('Clone the GitHub repository') {
             steps {
                 git branch: 'main', credentialsId: 'github', url: 'https://github.com/charannk007/test-application-for-testing-purposes.git'
+            }
         }
 
         stage('Build the Project') {
@@ -20,7 +21,6 @@ pipeline {
                     echo "Maven Home: ${env.MAVEN_HOME}"
                     sh "${MAVEN_HOME}/bin/mvn -version"
                     sh "${MAVEN_HOME}/bin/mvn clean package"
-                }
                 }
             }
         }
@@ -34,6 +34,7 @@ pipeline {
                 }
             }
         }
+
         stage('Docker Build') {
             steps {
                 sh 'docker build -t ${IMAGE_NAME}:v3 .'
@@ -52,10 +53,11 @@ pipeline {
                 sh 'docker push ${USER_NAME}/${IMAGE_NAME}:v3'
             }
         }
+    }
+
     post {
         success {
             echo 'Pipeline completed successfully.'
         }
     }
-}
 }
