@@ -21,6 +21,7 @@ pipeline {
                     sh "${MAVEN_HOME}/bin/mvn -version"
                     sh "${MAVEN_HOME}/bin/mvn clean package"
                 }
+                }
             }
         }
 
